@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+    <script src="https://reference.dashif.org/dash.js/latest/dist/dash.all.debug.js"> </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style type="text/css">
+        
+        .code{
+            width: 800px;
+            margin:auto; /*Para que el video esté centrado*/
+        }
+        video{
+            width: 800px;
+        }
+        .grafica{
+            width: 800px;  
+            margin: auto; /*Para que el gráfico esté centrado*/ 
+        }
+    </style>
+</head>
+<body>
+    <div class="code">
+        <video class="dashjs-player" autoplay controls preload="auto" muted>
+        </video>
+        </div>
+        <div class="code">
+        <p>Video Bitrate: <span id="bitrate"></span> kbps</p>
+         <p>Video Buffer: <span id="buffer"></span> seconds</p>
+         <p>Video Representation: <span id="representation"></span></p>
+    </div>
+    <div class="grafica">
+        <canvas id="myChart" ></canvas>
+    </div>
+    <script>
+        
+        const data = {
+            datasets: [{
+                labels:[],//eje x
+                data:[], //eje y
+                label: 'Buffer Level',
+                backgroundColor: 'rgb(255, 99, 132)',
+                borderColor: 'rgb(255, 99, 132)',
+                yAxisID: 'y1'
+            },
+            {
+                labels:[],//eje x
+                data:[],// eje y
+                label: 'Bitrate',
+                backgroundColor: 'rgb(0, 153, 204)',
+                borderColor: 'rgb(0, 51, 153)',
+                yAxisID: 'y2'
+            }
+        ]
+        };
+      
+        const config = {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                scales: {
+                    y1: {
+                        title: {
+                            display: true,
+                            text: 'Buffer Level',
+                        },
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                    },
+                    y2: {
+                        title: {
+                            display: true,
+                            text: 'Bitrate',
+                        },
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                    },
+                },
+            }
+        };
+        const myChart = new Chart(
+            document.getElementById('myChart'),
+            config
+        );
+    document.addEventListener("DOMContentLoaded", function () {
+        init();
+        });
+        function init(){
+            const protData = {
+                "org.w3.clearkey": {
+                    "clearkeys": {
+                        "oW5AK5BW43HzbTSKpiu3SQ": "hyN9IKGfWKdAwFaE5pm0qg"
+                    }
+                }
+            };        
+            var video,
+            player,
+            mpd_url = "./output/stream.mpd";
+            video = document.querySelector("video");
+            player = dashjs.MediaPlayer().create();
+            player.setProtectionData(protData);
+            player.initialize(video, mpd_url, true);
+            player.on(dashjs.MediaPlayer.events["PLAYBACK_ENDED"], function() {
+            clearInterval(eventPoller);
+        });
+        var eventPoller = setInterval(function() {
+            var streamInfo = player.getActiveStream().getStreamInfo();
+            var dashMetrics = player.getDashMetrics();
+            var dashAdapter = player.getDashAdapter();
+            if (dashMetrics && streamInfo) {
+                const periodIdx = streamInfo.index;
+                var repSwitch = dashMetrics.getCurrentRepresentationSwitch('video', true);
+                var bufferLevel = dashMetrics.getCurrentBufferLevel('video', true);
+                var bitrate = repSwitch ? Math.round(dashAdapter.
+                getBandwidthForRepresentation(repSwitch.to,
+                periodIdx) / 1000) : NaN;
+                document.getElementById('buffer').innerText = bufferLevel;
+                document.getElementById('bitrate').innerText = bitrate;
+                document.getElementById('representation').innerText = repSwitch.to;
+                
+                //Obtenemos el tiempo actual
+                let tiempo = new Date();
+                //Lo convertimos a horas, minutos y segundos
+                let horas = tiempo.getHours();
+                let minutos = tiempo.getMinutes();
+                let segundos = tiempo.getSeconds();
+                //Lo añadimos a la tabla junto con el nivel de buffer y el bitrate
+                addData(myChart, horas+":"+minutos+":"+segundos, bufferLevel, bitrate)
+
+            }
+        }, 500);
+    }
+    //Función que añade los datos al eje x(label) y a los dos ejes y (data1 y data2)
+    function addData(chart, label, data1, data2) {
+        chart.data.labels.push(label);
+        chart.data.datasets[0].data.push(data1);
+        chart.data.datasets[1].data.push(data2);
+        chart.update();
+    }
+    </script>
+</body>
+</html>
